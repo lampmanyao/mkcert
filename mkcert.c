@@ -59,15 +59,8 @@ int main(int argc, char **argv)
 
 	bio_err = BIO_new_fp(stderr, BIO_NOCLOSE);
 
-	if (mkreq(&req, &pkey, 1024, 0, 365) == -1) {
-		fprintf(stderr, "mkreq() failed\n");
-		goto err;
-	}
-
-	if (mkcert(req, "rootkey.pem", "rootcert.pem") == -1) {
-		fprintf(stderr, "mkcert() failed\n");
-		goto err;
-	}
+	mkreq(&req, &pkey, 1024, 0, 365);
+	mkcert(req, "rootkey.pem", "rootcert.pem");
 
 	RSA_print_fp(stdout, pkey->pkey.rsa, 0);
 	X509_REQ_print_fp(stdout, req);
@@ -81,15 +74,6 @@ int main(int argc, char **argv)
 	BIO_free(bio_err);
 
 	return 0;
-
-err:
-	if (req != NULL)
-		X509_REQ_free(req);
-
-	if (pkey != NULL)
-		EVP_PKEY_free(pkey);
-		
-	return -1;
 }
 
 static void callback(int p, int n, void *arg)
@@ -147,11 +131,11 @@ int mkcert(X509_REQ* req, const char* rootkey, const char* rootcert)
 	X509_set_subject_name(x, X509_REQ_get_subject_name(req));
 	X509_set_issuer_name(x, X509_get_subject_name(cacert));
 
-	if (!X509_sign(x, cakey, EVP_sha1()))
-		goto err;
+	assert(X509_sign(x, cakey, EVP_sha1()) > 0);
 
 	FILE* f = fopen("usercert.pem", "wb");
 	PEM_write_X509(f, x);
+	fclose(f);
 
 	X509_print_fp(stdout, x);
 	PEM_write_X509(stdout, x);
@@ -160,12 +144,6 @@ int mkcert(X509_REQ* req, const char* rootkey, const char* rootcert)
 	EVP_PKEY_free(cakey);
 
 	return 0;
-
-err:
-	X509_free(cacert);
-	EVP_PKEY_free(cakey);
-
-	return -1;
 }
 
 int mkreq(X509_REQ** reqp, EVP_PKEY** pkeyp, int bits, int serial, int days)
@@ -180,8 +158,7 @@ int mkreq(X509_REQ** reqp, EVP_PKEY** pkeyp, int bits, int serial, int days)
 	X509_NAME* name = NULL;
 
 	rsa = RSA_generate_key(bits, RSA_F4, callback, NULL);
-	if (!EVP_PKEY_assign_RSA(userpkey, rsa))
-		goto err;
+	assert(EVP_PKEY_assign_RSA(userpkey, rsa) > 0);
 
 	rsa = NULL;
 
@@ -191,14 +168,11 @@ int mkreq(X509_REQ** reqp, EVP_PKEY** pkeyp, int bits, int serial, int days)
 	X509_NAME_add_entry_by_txt(name, "C", MBSTRING_ASC, (const unsigned char*)"UK", -1, -1, 0);
 	X509_NAME_add_entry_by_txt(name, "CN", MBSTRING_ASC, (const unsigned char*)"OpenSSL Group", -1, -1, 0);
 
-	if (!X509_REQ_sign(req, userpkey, EVP_sha1()))
-		goto err;
+	assert(X509_REQ_sign(req, userpkey, EVP_sha1()) > 0);
 
 	*reqp = req;
 	*pkeyp = userpkey;
 
 	return 0;
-err:
-	return -1;
 }
 
