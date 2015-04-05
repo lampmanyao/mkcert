@@ -1,19 +1,6 @@
 /*
- * Create client certificate demo using openssl API.
- *
- * First, there's a trusted rootcert.pem and a rootkey.pem.
- * They can be created by two steps:
- *   a) create root CA certificate
- *     $ openssl req -nodes -newkey rsa:1024 -sha1 -keyout rootkey.pem -out rootreq.pem
- *     $ openssl x509 -req -in rootreq.pem -sha1 -signkey rootkey.pem -out rootcert.pem
- *   b) install CA certificate as trusted certificate
- *     $ sudo mkdir -p /usr/share/ca-certificates/extra
- *     $ sudo cp rootcert.pem /usr/share/ca-certificates/extra/rootcert.crt
- *     $ sudo dpkg-reconfigure ca-certificates
- *     $ sudo update-ca-certificates
- *
  * Build with gcc:
- * $ gcc -Wall -o mkcert mkcert.c -lssl -lcrypto
+ * $ gcc -Wall -o mkcacert mkcacert.c -lssl -lcrypto
  *
  * Copyright (C) 2015 Lampman Yao (lampmanyao@gmail.com)
  *
@@ -46,8 +33,8 @@
 #include <openssl/x509.h>
 #include <openssl/x509v3.h>
 
-void mkcert(X509_REQ* req, const char* rootkey, const char* rootcert);
-void mkreq(X509_REQ** x509, EVP_PKEY** pkey, int bits, int serial, int days);
+void mkcacert(X509_REQ* req, EVP_PKEY* pkey);
+void mkreq(X509_REQ** x509p, EVP_PKEY** pkeyp, int bits, int serial, int days);
 
 int main(int argc, char **argv)
 {
@@ -60,9 +47,18 @@ int main(int argc, char **argv)
 	bio_err = BIO_new_fp(stderr, BIO_NOCLOSE);
 
 	mkreq(&req, &pkey, 1024, 0, 365);
-	mkcert(req, "rootkey.pem", "rootcert.pem");
 
+	mkcacert(req, pkey);
+
+	FILE* f = fopen("rootkey.pem", "wb");
+	PEM_write_PrivateKey(f, pkey, NULL, NULL, 0, NULL, NULL);
+	fclose(f);
 	RSA_print_fp(stdout, pkey->pkey.rsa, 0);
+	PEM_write_PrivateKey(stdout, pkey, NULL, NULL, 0, NULL, NULL);
+
+	f = fopen("rootreq.pem", "wb");
+	PEM_write_X509_REQ(f, req);
+	fclose(f);
 	X509_REQ_print_fp(stdout, req);
 	PEM_write_X509_REQ(stdout, req);
 
@@ -76,35 +72,8 @@ int main(int argc, char **argv)
 	return 0;
 }
 
-static void load_cakey(EVP_PKEY** cakey, const char* keypem)
+void mkcacert(X509_REQ* req, EVP_PKEY* pkey)
 {
-	FILE* f = fopen(keypem, "r");
-	assert(f != NULL);
-	PEM_read_PrivateKey(f, cakey, NULL, NULL);
-	fclose(f);
-}
-
-static void load_cacert(X509** cacert, const char* certpem)
-{
-	FILE* f = fopen(certpem, "r");
-	assert(f != NULL);
-	PEM_read_X509(f, cacert, NULL, NULL);
-	fclose(f);
-}
-
-void mkcert(X509_REQ* req, const char* rootkey, const char* rootcert)
-{
-	X509* cacert = X509_new();
-	assert(cacert != NULL);
-
-	load_cacert(&cacert, rootcert);
-
-	EVP_PKEY* cakey = EVP_PKEY_new();
-	load_cakey(&cakey, rootkey);
-
-	PEM_write_PrivateKey(stdout, cakey, NULL, NULL, 0, NULL, NULL);
-	PEM_write_PUBKEY(stdout, cakey);
-
 	X509* x = X509_new();
 	X509_set_version(x, 3);
 	ASN1_INTEGER_set(X509_get_serialNumber(x), 1024);
@@ -114,46 +83,48 @@ void mkcert(X509_REQ* req, const char* rootkey, const char* rootcert)
 	X509_set_pubkey(x, X509_PUBKEY_get(req->req_info->pubkey));
 
 	X509_set_subject_name(x, X509_REQ_get_subject_name(req));
-	X509_set_issuer_name(x, X509_get_subject_name(cacert));
 
-	assert(X509_sign(x, cakey, EVP_sha1()) > 0);
+	X509_NAME* name = X509_get_subject_name(x);
+	X509_NAME_add_entry_by_txt(name, "C", MBSTRING_ASC, (const unsigned char*)"UK", -1, -1, 0);
+	X509_NAME_add_entry_by_txt(name, "CN", MBSTRING_ASC, (const unsigned char*)"Openssl", -1, -1, 0);
+	X509_set_issuer_name(x, name);
 
-	FILE* f = fopen("usercert.pem", "wb");
+	assert(X509_sign(x, pkey, EVP_sha1()) > 0);
+
+	FILE* f = fopen("rootcert.pem", "wb");
 	PEM_write_X509(f, x);
 	fclose(f);
 
 	X509_print_fp(stdout, x);
 	PEM_write_X509(stdout, x);
-
-	X509_free(cacert);
-	EVP_PKEY_free(cakey);
 }
 
-void mkreq(X509_REQ** reqp, EVP_PKEY** pkeyp, int bits, int serial, int days)
+void mkreq(X509_REQ** req, EVP_PKEY** pkeyp, int bits, int serial, int days)
 {
-	X509_REQ* req = X509_REQ_new();
-	assert(req != NULL);
+	X509_REQ* x = X509_REQ_new();
+	assert(x != NULL);
 
-	EVP_PKEY* userpkey = EVP_PKEY_new();
-	assert(userpkey != NULL);
-
+	EVP_PKEY* pk = EVP_PKEY_new();
+	assert(pk != NULL);
 	RSA* rsa;
 	X509_NAME* name = NULL;
 
 	rsa = RSA_generate_key(bits, RSA_F4, NULL, NULL);
-	assert(EVP_PKEY_assign_RSA(userpkey, rsa) > 0);
+	assert(EVP_PKEY_assign_RSA(pk, rsa) > 0);
 
 	rsa = NULL;
 
-	X509_REQ_set_pubkey(req, userpkey);
+	X509_REQ_set_pubkey(x, pk);
 
-	name = X509_REQ_get_subject_name(req);
-	X509_NAME_add_entry_by_txt(name, "C", MBSTRING_ASC, (const unsigned char*)"UK", -1, -1, 0);
-	X509_NAME_add_entry_by_txt(name, "CN", MBSTRING_ASC, (const unsigned char*)"OpenSSL Group", -1, -1, 0);
+	name = X509_REQ_get_subject_name(x);
 
-	assert(X509_REQ_sign(req, userpkey, EVP_sha1()) > 0);
+	X509_NAME_add_entry_by_txt(name, "C", MBSTRING_ASC, (const unsigned char *)"UK", -1, -1, 0);
+	X509_NAME_add_entry_by_txt(name, "CN",
+				MBSTRING_ASC, (const unsigned char *)"OpenSSL Group", -1, -1, 0);
 
-	*reqp = req;
-	*pkeyp = userpkey;
+	assert(X509_REQ_sign(x, pk, EVP_sha1()) > 0);
+
+	*req = x;
+	*pkeyp = pk;
 }
 
