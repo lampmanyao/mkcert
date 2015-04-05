@@ -1,17 +1,6 @@
 /*
  * Create client certificate demo using openssl API.
  *
- * First, there's a trusted rootcert.pem and a rootkey.pem.
- * They can be created by two steps:
- *   a) create root CA certificate
- *     $ openssl req -nodes -newkey rsa:1024 -sha1 -keyout rootkey.pem -out rootreq.pem
- *     $ openssl x509 -req -in rootreq.pem -sha1 -signkey rootkey.pem -out rootcert.pem
- *   b) install CA certificate as trusted certificate
- *     $ sudo mkdir -p /usr/share/ca-certificates/extra
- *     $ sudo cp rootcert.pem /usr/share/ca-certificates/extra/rootcert.crt
- *     $ sudo dpkg-reconfigure ca-certificates
- *     $ sudo update-ca-certificates
- *
  * Build with gcc:
  * $ gcc -Wall -o mkcert mkcert.c -lssl -lcrypto
  *
