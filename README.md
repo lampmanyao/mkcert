@@ -53,10 +53,10 @@ $ > /etc/ssl/demoCA/index.txt
 $ echo 1024 > /etc/ssl/demoCA/crlnumber
 
 #### Create url.pem  
-$ openssl ca -gencrl -out /etc/ssl/crl/crl.pem  
+$ openssl ca -gencrl -out /etc/ssl/demoCA/crl/crl.pem  
 
 #### View crl.pem
-$ openssl crl -in /etc/ssl/crl/crl.pem -text  
+$ openssl crl -in /etc/ssl/demoCA/crl/crl.pem -text  
 > Certificate Revocation List (CRL):  
         Version 2 (0x1) 
     Signature Algorithm: sha256WithRSAEncryption  
@@ -78,7 +78,7 @@ $ openssl ca -revoke usercert.pem
 $ openssl ca -gencrl -out /etc/ssl/demoCA/crl/crl.pem
 
 #### View the crl.pem againt 
-$ openssl crl -int /etc/ssl/crl/crl.pem -text  
+$ openssl crl -in /etc/ssl/demoCA/crl/crl.pem -text  
 > Certificate Revocation List (CRL):  
         Version 2 (0x1)  
     Signature Algorithm: sha256WithRSAEncryption  
