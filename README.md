@@ -77,7 +77,7 @@ $ openssl ca -revoke usercert.pem
 #### Update the CRL
 $ openssl ca -gencrl -out /etc/ssl/demoCA/crl/crl.pem
 
-#### View the crl.pem againt 
+#### View the crl.pem again 
 $ openssl crl -in /etc/ssl/demoCA/crl/crl.pem -text  
 > Certificate Revocation List (CRL):  
         Version 2 (0x1)  
@@ -101,7 +101,7 @@ See mkcacert.c
 ### Client create private key and certreq, create client cert by CA:  
 See mkclientcert.c
 
-### Verify client cert:  
+### Verify client cert with or without CRL:  
 See verify.c
 
 ## TODO
