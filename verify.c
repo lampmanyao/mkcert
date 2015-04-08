@@ -35,18 +35,26 @@
 #include <openssl/x509.h>
 #include <openssl/x509v3.h>
 
-static int verify(const char* cacert, const char* usercert);
-static X509* load_cert(const char* usercert);
+static int verify(const char* cacert, const char* crl, const char* usercert);
 static int check(X509_STORE* ctx, const char* usercert);
 
 int main(int argc, char** argv)
 {
-	if (argc != 3) {
+	if (argc != 3 && argc != 4) {
 		printf("usage: %s cacert usercert\n", argv[0]);
+		printf("       %s cacert crl usercert\n", argv[0]);
 		return -1;
 	}
 
-	if (verify(argv[1], argv[2]) == 0) {
+	int ret;
+
+	if (argc == 3) {
+		ret = verify(argv[1], NULL, argv[2]);
+	} else if (argc == 4) {
+		ret = verify(argv[1], argv[2], argv[3]);
+	}
+
+	if (ret == 0) {
 		fprintf(stderr, "verify failed\n");
 	} else {
 		fprintf(stderr, "verify done\n");
@@ -55,11 +63,12 @@ int main(int argc, char** argv)
 	return 0;
 }
 
-int verify(const char* cacert, const char* usercert)
+int verify(const char* cacert, const char* crl, const char* usercert)
 {
 	int ret = 0;
 	X509_STORE* cert_ctx = NULL;
  	X509_LOOKUP* lookup = NULL;
+	X509_CRL* xcrl = NULL;
 
 	cert_ctx = X509_STORE_new();
 	assert(cert_ctx != NULL);
@@ -70,6 +79,11 @@ int verify(const char* cacert, const char* usercert)
 	assert(lookup != NULL);
 
 	assert(X509_LOOKUP_load_file(lookup, cacert, X509_FILETYPE_PEM) > 0);
+
+	if (crl) {
+		assert(X509_load_crl_file(lookup, "crl.pem", X509_FILETYPE_PEM) > 0);
+		X509_STORE_set_flags(cert_ctx, X509_V_FLAG_CRL_CHECK);
+	}
 
 	lookup = X509_STORE_add_lookup(cert_ctx, X509_LOOKUP_hash_dir());
 	assert(lookup != NULL);
@@ -82,29 +96,19 @@ int verify(const char* cacert, const char* usercert)
 	return ret;
 }
 
-static X509* load_cert(const char* usercert)
-{
-	X509* x = NULL;
-	BIO* cert = BIO_new(BIO_s_file());
-	assert(cert != NULL);
-
-	assert(BIO_read_filename(cert, usercert) > 0);
-	x = PEM_read_bio_X509_AUX(cert, NULL, NULL, NULL);
-	BIO_free(cert);
-
-	return x;
-}
-
 static int check(X509_STORE* ctx, const char* usercert)
 {
+	/* read usercert from file */
 	X509* x = NULL;
-	int i = 0;
-	X509_STORE_CTX* csc;
-
-	x = load_cert(usercert);
+	BIO* bio = BIO_new(BIO_s_file());
+	assert(bio != NULL);
+	assert(BIO_read_filename(bio, usercert) > 0);
+	x = PEM_read_bio_X509_AUX(bio, NULL, NULL, NULL);
+	BIO_free(bio);
 	assert(x != NULL);
 
-	csc = X509_STORE_CTX_new();
+	int i = 0;
+	X509_STORE_CTX* csc = X509_STORE_CTX_new();
 	assert(csc != NULL);
 
 	X509_STORE_set_flags(ctx, 0);
