@@ -92,10 +92,10 @@ static char* make_revocation_str()
 
 static int revoke(const char* dbfile, X509* x)
 {
+	int i;
 	ASN1_UTCTIME* tm = NULL;
 	char* rev_str = NULL;
 	BIGNUM* bn = NULL;
-	int i;
 	char* row[DB_NUMBER];
 
 	for (i = 0; i < DB_NUMBER; i++)
@@ -110,7 +110,6 @@ static int revoke(const char* dbfile, X509* x)
 
 	BN_free(bn);
 
-
 	assert(row[DB_name] != NULL);
 	assert(row[DB_serial] != NULL);
 
@@ -118,7 +117,18 @@ static int revoke(const char* dbfile, X509* x)
 	assert(f != NULL);
 	char line[512] = {0};
 
+	char index_old[256];
+	snprintf(index_old, sizeof(index_old), "%s.%s", dbfile, "old");
+	FILE* old = fopen(index_old, "w");
+	assert(old != NULL);
+
+
+	/*
+	 * lookup whether the client cert has been revoke by serial number
+	 * and rotate the index.txt
+	 */
 	while (fgets(line, 512, f)) {
+		fwrite(line, strlen(line), 1, old);
 		char* sep = "\t";
 		char* token;
 		int i = 0;
@@ -128,14 +138,38 @@ static int revoke(const char* dbfile, X509* x)
 			i++;
 			if (i == DB_serial + 1) {
 				if (strcmp(row[DB_serial], token) == 0) {
+					/* found */
 					fprintf(stderr, "ERROR:Already revoked, serial number %s\n", row[DB_serial]);
 					fclose(f);
+					fclose(old);
 					return -1;
 				}
 			}
 		}
 	}
 
+	fclose(old);
+
+
+	char index_attr[256];
+	char index_attr_old[256];
+	snprintf(index_attr, sizeof(index_attr), "%s.attr", dbfile);
+	snprintf(index_attr_old, sizeof(index_attr_old), "%s.attr.%s", dbfile, "old");
+	FILE* f1 = fopen(index_attr, "a+");
+	assert(f1 != NULL);
+	FILE* f2 = fopen(index_attr_old, "w+");
+	assert(f2 != NULL);
+	if (fgets(line, 512, f1) != NULL) {
+		fwrite(line, strlen(line), 1, f2);
+	}
+	fclose(f2);
+	char* subject = "unique_subject = yes";
+	fwrite(subject, strlen(subject), 1, f1);
+	fclose(f1);
+
+	/*
+	 * insert new record to index.txt
+	 */
 	row[DB_type] = (char *)OPENSSL_malloc(2);
 
 	tm = X509_get_notAfter(x);
