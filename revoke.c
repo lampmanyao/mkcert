@@ -129,14 +129,14 @@ static int revoke(const char* dbfile, X509* x)
 	 */
 	while (fgets(line, 512, f)) {
 		fwrite(line, strlen(line), 1, old);
+
 		char* sep = "\t";
 		char* token;
-		int i = 0;
+		int j = 0;
 
 		char* p = line;
 		while ((token = strsep(&p, sep)) != NULL) {
-			i++;
-			if (i == DB_serial + 1) {
+			if (++j == DB_serial + 1) {
 				if (strcmp(row[DB_serial], token) == 0) {
 					/* found */
 					fprintf(stderr, "ERROR:Already revoked, serial number %s\n", row[DB_serial]);
@@ -150,19 +150,24 @@ static int revoke(const char* dbfile, X509* x)
 
 	fclose(old);
 
-
 	char index_attr[256];
 	char index_attr_old[256];
+
 	snprintf(index_attr, sizeof(index_attr), "%s.attr", dbfile);
 	snprintf(index_attr_old, sizeof(index_attr_old), "%s.attr.%s", dbfile, "old");
+
 	FILE* f1 = fopen(index_attr, "a+");
-	assert(f1 != NULL);
 	FILE* f2 = fopen(index_attr_old, "w+");
+	assert(f1 != NULL);
 	assert(f2 != NULL);
+
 	if (fgets(line, 512, f1) != NULL) {
 		fwrite(line, strlen(line), 1, f2);
 	}
+
 	fclose(f2);
+
+	/* FIXME: index.txt.attr */
 	char* subject = "unique_subject = yes";
 	fwrite(subject, strlen(subject), 1, f1);
 	fclose(f1);
