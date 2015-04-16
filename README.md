@@ -26,7 +26,7 @@ Demos of create self-signed CA cert, create client cert with self-signed CAcert 
 ### Revoke client cert
 #### Create CRL
 Before we can generate a CRL, we must create a `crlnumber` file, but we look the openssl.cnf at first.
-* modify openssl.cnf (ubuntu: /etc/ssl/openss.cnf, centos: /etc/pki/tls/openssl.cnf), find the session CA_default and modify it as follow:  
+* modify openssl.cnf (ubuntu: /etc/ssl/openss.cnf, centos: /etc/pki/tls/openssl.cnf), find the section CA_default and modify it as follow:  
 > [ CA_default ]
 > 
 > dir             = /etc/ssl/demoCA               # Where everything is kept  
@@ -104,5 +104,8 @@ See mkclientcert.c
 ### Verify client cert with or without CRL:  
 See verify.c
 
-## TODO
-Revoke client cert
+### Revoke client cert:
+See revoke.c
+
+### Generate CRL:
+See mkcrl.c
