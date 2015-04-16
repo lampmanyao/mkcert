@@ -50,6 +50,11 @@ static X509* load_cert(const char* usercert);
 
 int main(int argc, char** argv)
 {
+	if (argc != 3) {
+		printf("%s index.txt usercert", argv[0]);
+		return -1;
+	}
+
 	X509* x = load_cert(argv[2]);
 	int ret = revoke(argv[1], x);
 	if (ret == -1) {
@@ -144,6 +149,7 @@ static int revoke(const char* dbfile, X509* x)
 					fclose(old);
 					return -1;
 				}
+				break;  /* skip the field bebind DB_serial */
 			}
 		}
 	}
