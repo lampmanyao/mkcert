@@ -40,7 +40,7 @@
 
 #define OCSP_REVOKED_STATUS_NOSTATUS         -1
 #define OCSP_REVOKED_STATUS_KEYCOMPROMISE     1
-#define OCSP_REVOKED_STATUS_CACOMPROMIS       2
+#define OCSP_REVOKED_STATUS_CACOMPROMISE      2
 #define OCSP_REVOKED_STATUS_CERTIFICATEHOLD   6
 #define OCSP_REVOKED_STATUS_REMOVEFROMCRL     8
 
@@ -177,8 +177,8 @@ static BIGNUM* load_serial(char* serialfile, int create, ASN1_INTEGER** retai)
 {
 	BIO* in = NULL;
 	BIGNUM* ret = NULL;
-	char buf[1024];
 	ASN1_INTEGER* ai = NULL;
+	char buf[1024];
 
 	ai = ASN1_INTEGER_new();
 	if (ai == NULL)
@@ -217,7 +217,7 @@ static BIGNUM* load_serial(char* serialfile, int create, ASN1_INTEGER** retai)
 	BIO_free(in);
 	if (ai != NULL)
 		ASN1_INTEGER_free(ai);
-	return (ret);
+	return ret;
 }
 
 static int save_serial(char* serialfile, char* suffix, BIGNUM* serial,
@@ -270,11 +270,12 @@ static int save_serial(char* serialfile, char* suffix, BIGNUM* serial,
 		*retai = ai;
 		ai = NULL;
 	}
- err:
+
+err:
 	BIO_free_all(out);
 	if (ai != NULL)
 		ASN1_INTEGER_free(ai);
-	return (ret);
+	return ret;
 }
 
 static int rotate_serial(char* serialfile, char* new_suffix, char* old_suffix)
@@ -314,8 +315,7 @@ static int rotate_serial(char* serialfile, char* new_suffix, char* old_suffix)
 		goto err;
 	}
 #ifdef RL_DEBUG
-	fprintf(stderr, "DEBUG: renaming \"%s\" to \"%s\"\n",
-			   buf[0], serialfile);
+	fprintf(stderr, "DEBUG: renaming \"%s\" to \"%s\"\n", buf[0], serialfile);
 #endif
 	if (rename(buf[0], serialfile) < 0) {
 		fprintf(stderr, "unable to rename %s to %s\n", buf[0], serialfile);
@@ -347,7 +347,6 @@ static int unpack_revinfo(ASN1_TIME** prevtm, int* preason, ASN1_OBJECT** phold,
 	}
 
 	p = strchr(tmp, ',');
-
 	rtime_str = tmp;
 
 	if (p) {
@@ -491,7 +490,7 @@ int make_revoked(X509_REVOKED* rev, const char* str)
 	else 
 		ret = 1; 
 
- err:
+err:
 	if (tmp)
 		OPENSSL_free(tmp);
 	ASN1_OBJECT_free(hold);
@@ -502,9 +501,6 @@ int make_revoked(X509_REVOKED* rev, const char* str)
 	return ret;
 }
 
-static char* section = NULL;
-static char* crlnumberfile = NULL;
-
 int main(int argc, char** argv)
 {
 	if (argc != 5) {
@@ -514,20 +510,27 @@ int main(int argc, char** argv)
 
 	OpenSSL_add_all_digests();
 
-	CONF* conf = NULL;
-	BIGNUM* serial = NULL;
-	BIGNUM* crlnumber = NULL;
 	long crldays = 0;
 	long crlhours = 0;
 	long crlsec = 0;
-	X509_CRL* crl = NULL;
+
+	/* need to be free */
+	CONF* conf = NULL;
 	X509* cacert = NULL;
 	EVP_PKEY* pkey = NULL;
-	ASN1_TIME* tmptm;
-	char* index = NULL;
-	const EVP_MD* dgst = NULL;
-	char* md = NULL;
+	X509_CRL* crl = NULL;
+	ASN1_TIME* tmptm = NULL;
 	BIO* sout = NULL;
+	BIGNUM* crlnumber = NULL;
+
+
+	BIGNUM* serial = NULL;
+
+	char* index = NULL;
+	char* md = NULL;
+	char* section = NULL;
+	char* crlnumberfile = NULL;
+	const EVP_MD* dgst = NULL;
 
 
 	/* load config */
@@ -537,7 +540,6 @@ int main(int argc, char** argv)
 	/* load cacert */
 	cacert = X509_new();
 	assert(cacert != NULL);
-
 	FILE* f = fopen(argv[2], "r");
 	assert(f != NULL);
 	PEM_read_X509(f, &cacert, NULL, NULL);
@@ -546,11 +548,11 @@ int main(int argc, char** argv)
 	/* load cakey */
 	pkey = EVP_PKEY_new();
 	assert(pkey != NULL);
-
 	f = fopen(argv[3], "r");
 	assert(f != NULL);
 	PEM_read_PrivateKey(f, &pkey, NULL, NULL);
 	fclose(f);
+
 
 	section = NCONF_get_string(conf, BASE_SECTION, ENV_DEFAULT_CA);
 	assert(section != NULL);
@@ -580,40 +582,20 @@ int main(int argc, char** argv)
 	X509_CRL_set_lastUpdate(crl, tmptm);
 	assert(X509_time_adj_ex(tmptm, crldays, crlhours * 60 * 60 + crlsec, NULL) > 0);
 	X509_CRL_set_nextUpdate(crl, tmptm);
-	ASN1_TIME_free(tmptm);
 
 
 	/*
-	 * FIXME:
 	 * Read every serial number from `index.txt` and create a 
-	 * X509_REVOKED: r with serial number, and insert r to CRL in openssl.
-	 * But, we can do this instead of the way of openssl:
-	 * find the different part between index.txt and index.txt.old,
-	 * and insert them to CRL.
+	 * X509_REVOKED: r with serial number, and insert r to CRL.
+	 * TODO: If there's already a CRL, how to update it?
 	 */
 	index = NCONF_get_string(conf, section, ENV_DATABASE);
 	assert(index != NULL);
-
-	char index_old[256];
-	snprintf(index_old, 256, "%s.old", index);
-
 	FILE* f1 = fopen(index, "r");
-	FILE* f2 = fopen(index_old, "r");
 	assert(f1 != NULL);
-	assert(f2 != NULL);
 
 	char line[512];
-	int i = 0;
-	while (fgets(line, 512, f2)) {
-		i++;
-	}
-	fclose(f2);
-
-	int j = 0;
 	while (fgets(line, 512, f1)) {
-		if (++j != i + 1)
-			continue;
-
 		if (line[0] != 'R')
 			continue;
 
@@ -646,7 +628,6 @@ int main(int argc, char** argv)
 	if (crlnumberfile != NULL)
 		assert(save_serial(crlnumberfile, "new", crlnumber, NULL) > 0);
 
-	BN_free(crlnumber);
 
 	md = NCONF_get_string(conf, section, ENV_DEFAULT_MD);
 	assert(md != NULL);
@@ -673,6 +654,15 @@ int main(int argc, char** argv)
 
 	if (crlnumberfile != NULL)
 		assert(rotate_serial(crlnumberfile, "new", "old") > 0);
+
+	/* free */
+	NCONF_free(conf);
+	X509_free(cacert);
+	EVP_PKEY_free(pkey);
+	X509_CRL_free(crl);
+	ASN1_TIME_free(tmptm);
+	BIO_free(sout);
+	BN_free(crlnumber);
 
 	return 0;
 }
