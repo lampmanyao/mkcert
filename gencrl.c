@@ -611,9 +611,9 @@ int main(int argc, char** argv)
 		X509_REVOKED* r = X509_REVOKED_new();
 		assert(r != NULL);
 
-		k = make_revoked(r, fileds[DB_rev_date]);
-		assert(k > 0);
+		assert(make_revoked(r, fileds[DB_rev_date]) > 0);
 		assert(BN_hex2bn(&serial, fileds[DB_serial]) > 0);
+
 		ASN1_INTEGER* tmpser = BN_to_ASN1_INTEGER(serial, NULL);
 		BN_free(serial);
 		serial = NULL;
@@ -625,9 +625,8 @@ int main(int argc, char** argv)
 
 	X509_CRL_sort(crl);
 
-	if (crlnumberfile != NULL)
-		assert(save_serial(crlnumberfile, "new", crlnumber, NULL) > 0);
-
+	assert(save_serial(crlnumberfile, "new", crlnumber, NULL) > 0);
+	assert(rotate_serial(crlnumberfile, "new", "old") > 0);
 
 	md = NCONF_get_string(conf, section, ENV_DEFAULT_MD);
 	assert(md != NULL);
@@ -652,8 +651,6 @@ int main(int argc, char** argv)
 	BIO_write_filename(sout, argv[4]);
 	PEM_write_bio_X509_CRL(sout, crl);
 
-	if (crlnumberfile != NULL)
-		assert(rotate_serial(crlnumberfile, "new", "old") > 0);
 
 	/* free */
 	NCONF_free(conf);
