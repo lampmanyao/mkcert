@@ -2,7 +2,7 @@
  * Create client certificate demo using openssl API.
  *
  * Build with gcc:
- * $ gcc -Wall -o mkcert mkcert.c -lssl -lcrypto
+ * $ gcc -Wall -o mkcclientcert mkclientcert.c -lssl -lcrypto
  *
  * Copyright (C) 2015 Lampman Yao (lampmanyao@gmail.com)
  *
@@ -83,6 +83,13 @@ static void load_cacert(X509** cacert, const char* certpem)
 
 void mkcert(X509_REQ* req, const char* rootkey, const char* rootcert)
 {
+	RSA* rsa_key = EVP_PKEY_get1_RSA(X509_PUBKEY_get(req->req_info->pubkey));
+	int key_length = RSA_size(rsa_key);
+	if (key_len != 128) {
+		fprintf(stderr, "CA::key length of req is %d, not long enough\n");      
+		return NULL;
+	}
+
 	X509* cacert = X509_new();
 	assert(cacert != NULL);
 
