@@ -503,8 +503,8 @@ err:
 
 int main(int argc, char** argv)
 {
-	if (argc != 5) {
-		printf("%s openssl.cnf cacert.pem cakey.pem crl.pem\n", argv[0]);
+	if (argc != 5 && argc != 6) {
+		printf("%s openssl.cnf cacert.pem cakey.pem crl.pem [passwd]\n", argv[0]);
 		return -1;
 	}
 
@@ -550,7 +550,11 @@ int main(int argc, char** argv)
 	assert(pkey != NULL);
 	f = fopen(argv[3], "r");
 	assert(f != NULL);
-	PEM_read_PrivateKey(f, &pkey, NULL, NULL);
+	if (argc == 6) {
+		PEM_read_PrivateKey(f, &pkey, NULL, argv[5]);
+	} else {
+		PEM_read_PrivateKey(f, &pkey, NULL, NULL);
+	}
 	fclose(f);
 
 
