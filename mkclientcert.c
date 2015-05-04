@@ -41,9 +41,7 @@ void mkreq(X509_REQ** x509, EVP_PKEY** pkey, int bits, int serial, int days);
 int main(int argc, char **argv)
 {
 	if (argc > 2) {
-		printf("%s passwd\n", argv[0]);
-		printf("or\n");
-		printf("%s\n", argv[0]);
+		printf("usage: %s [passwd]\n", argv[0]);
 		return -1;
 	}
 

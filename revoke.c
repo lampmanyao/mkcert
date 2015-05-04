@@ -51,7 +51,7 @@ static X509* load_cert(const char* usercert);
 int main(int argc, char** argv)
 {
 	if (argc != 3) {
-		printf("%s index.txt usercert", argv[0]);
+		printf("usage: %s index.txt usercert", argv[0]);
 		return -1;
 	}
 

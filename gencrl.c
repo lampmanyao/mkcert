@@ -504,7 +504,7 @@ err:
 int main(int argc, char** argv)
 {
 	if (argc != 5 && argc != 6) {
-		printf("%s openssl.cnf cacert.pem cakey.pem crl.pem [passwd]\n", argv[0]);
+		printf("usage: %s openssl.cnf cacert.pem cakey.pem crl.pem [passwd]\n", argv[0]);
 		return -1;
 	}
 

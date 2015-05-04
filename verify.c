@@ -41,8 +41,7 @@ static int check(X509_STORE* ctx, const char* usercert);
 int main(int argc, char** argv)
 {
 	if (argc != 3 && argc != 4) {
-		printf("usage: %s cacert usercert\n", argv[0]);
-		printf("       %s cacert crl usercert\n", argv[0]);
+		printf("usage: %s cacert [crl] usercert\n", argv[0]);
 		return -1;
 	}
 
