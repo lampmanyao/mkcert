@@ -109,3 +109,6 @@ See revoke.c
 
 ### Generate CRL:
 See mkcrl.c
+
+# TODO
+PEM pass phrase for CA private key with openssl APIs
