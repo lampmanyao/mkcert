@@ -38,6 +38,16 @@ void mkreq(X509_REQ** x509p, EVP_PKEY** pkeyp, int bits, int serial, int days);
 
 int main(int argc, char **argv)
 {
+	if (argc > 2) {
+		printf("./%s\n", argv[0]);
+		printf("or", argv[0]);
+		printf("./%s passwd\n", argv[0]);
+		return -1;
+	}
+
+	OpenSSL_add_all_digests();
+	OpenSSL_add_all_algorithms();
+
 	BIO* bio_err;
 	X509_REQ* req = NULL;
 	EVP_PKEY* pkey = NULL;
@@ -51,7 +61,11 @@ int main(int argc, char **argv)
 	mkcacert(req, pkey);
 
 	FILE* f = fopen("rootkey.pem", "wb");
-	PEM_write_PrivateKey(f, pkey, NULL, NULL, 0, NULL, NULL);
+	if (argc == 1) {
+		PEM_write_PrivateKey(f, pkey, NULL, NULL, 0, NULL, NULL);
+	} else if (argc == 2) {
+		PEM_write_PrivateKey(f, pkey, EVP_des_ede3_cbc(), NULL, 0, NULL, argv[1]);
+	}
 	fclose(f);
 	RSA_print_fp(stdout, pkey->pkey.rsa, 0);
 	PEM_write_PrivateKey(stdout, pkey, NULL, NULL, 0, NULL, NULL);

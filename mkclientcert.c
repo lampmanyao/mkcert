@@ -2,7 +2,7 @@
  * Create client certificate demo using openssl API.
  *
  * Build with gcc:
- * $ gcc -Wall -o mkcclientcert mkclientcert.c -lssl -lcrypto
+ * $ gcc -Wall -o mkclientcert mkclientcert.c -lssl -lcrypto
  *
  * Copyright (C) 2015 Lampman Yao (lampmanyao@gmail.com)
  *
@@ -35,11 +35,18 @@
 #include <openssl/x509.h>
 #include <openssl/x509v3.h>
 
-void mkcert(X509_REQ* req, const char* rootkey, const char* rootcert);
+void mkcert(X509_REQ* req, const char* rootkey, const char* rootcert, const char* passwd);
 void mkreq(X509_REQ** x509, EVP_PKEY** pkey, int bits, int serial, int days);
 
 int main(int argc, char **argv)
 {
+	if (argc > 2) {
+		printf("%s passwd\n", argv[0]);
+		printf("or\n");
+		printf("%s\n", argv[0]);
+		return -1;
+	}
+
 	BIO* bio_err;
 	X509_REQ* req = NULL;
 	EVP_PKEY* pkey = NULL;
@@ -49,7 +56,11 @@ int main(int argc, char **argv)
 	bio_err = BIO_new_fp(stderr, BIO_NOCLOSE);
 
 	mkreq(&req, &pkey, 1024, 0, 365);
-	mkcert(req, "rootkey.pem", "rootcert.pem");
+	if (argc == 1) {
+		mkcert(req, "rootkey.pem", "rootcert.pem", NULL);
+	} else if (argc == 2) {
+		mkcert(req, "rootkey.pem", "rootcert.pem", argv[1]);
+	}
 
 	RSA_print_fp(stdout, pkey->pkey.rsa, 0);
 	X509_REQ_print_fp(stdout, req);
@@ -65,11 +76,11 @@ int main(int argc, char **argv)
 	return 0;
 }
 
-static void load_cakey(EVP_PKEY** cakey, const char* keypem)
+static void load_cakey(EVP_PKEY** cakey, const char* keypem, const char* passwd)
 {
 	FILE* f = fopen(keypem, "r");
 	assert(f != NULL);
-	PEM_read_PrivateKey(f, cakey, NULL, NULL);
+	PEM_read_PrivateKey(f, cakey, NULL, passwd);
 	fclose(f);
 }
 
@@ -81,7 +92,7 @@ static void load_cacert(X509** cacert, const char* certpem)
 	fclose(f);
 }
 
-void mkcert(X509_REQ* req, const char* rootkey, const char* rootcert)
+void mkcert(X509_REQ* req, const char* rootkey, const char* rootcert, const char* passwd)
 {
 	RSA* rsa_key = EVP_PKEY_get1_RSA(X509_PUBKEY_get(req->req_info->pubkey));
 	int key_length = RSA_size(rsa_key);
@@ -96,7 +107,7 @@ void mkcert(X509_REQ* req, const char* rootkey, const char* rootcert)
 	load_cacert(&cacert, rootcert);
 
 	EVP_PKEY* cakey = EVP_PKEY_new();
-	load_cakey(&cakey, rootkey);
+	load_cakey(&cakey, rootkey, passwd);
 
 	PEM_write_PrivateKey(stdout, cakey, NULL, NULL, 0, NULL, NULL);
 	PEM_write_PUBKEY(stdout, cakey);
